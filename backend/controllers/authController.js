@@ -19,7 +19,6 @@ const ADMIN_EMAILS = ["yugalhemane2@gmail.com"];
 // ✳️ Google OAuth Login Controller (Secure) - Temporarily disabled
 import axios from "axios";
 
-
 // ✅ JWT helper
 const generateToken = (user) => {
   if (!process.env.JWT_SECRET) {
@@ -304,26 +303,39 @@ export const loginWithPassword = async (req, res) => {
   }
 };
 
-
-
 // controllers/authController.js
 
-import { verifyGoogleToken } from "../utils/googleAuth.js"; // helper we built earlier
+import {
+  verifyGoogleToken,
+  verifyGoogleAccessToken,
+} from "../utils/googleAuth.js"; // helper we built earlier
 
 // 🎯 Google Login Controller
 export const googleLogin = async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, accessToken } = req.body;
 
-    if (!token) {
-      return res.status(400).json({ success: false, message: "Google token missing" });
+    if (!token && !accessToken) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Google token missing" });
     }
 
-    // ✅ Verify token with Google
-    const googleUser = await verifyGoogleToken(token);
+    let googleUser;
+
+    // Handle both ID token and access token
+    if (accessToken) {
+      // Frontend sends access token
+      googleUser = await verifyGoogleAccessToken(accessToken);
+    } else {
+      // Backend expects ID token
+      googleUser = await verifyGoogleToken(token);
+    }
 
     if (!googleUser?.email) {
-      return res.status(401).json({ success: false, message: "Invalid Google login" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid Google login" });
     }
 
     // ✅ Find or create user
@@ -338,12 +350,8 @@ export const googleLogin = async (req, res) => {
       });
     }
 
-    // ✅ Sign JWT
-    const jwtToken = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // ✅ Sign JWT using central helper (validates JWT_SECRET)
+    const jwtToken = generateToken(user);
 
     return res.status(200).json({
       success: true,
@@ -359,10 +367,14 @@ export const googleLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("Google login error:", error.message);
-    return res.status(500).json({ success: false, message: "Google login failed" });
+    const status =
+      error.message?.includes("JWT_SECRET") ||
+      error.message?.includes("Google OAuth not configured")
+        ? 400
+        : 500;
+    return res.status(status).json({
+      success: false,
+      message: status === 400 ? error.message : "Google login failed",
+    });
   }
 };
-
-
-
-

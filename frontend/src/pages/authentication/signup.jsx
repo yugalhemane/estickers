@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "react-toastify";
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, googleLogin } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -42,6 +43,59 @@ const Signup = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ Google OAuth Signup/Login via Google Identity Services
+  const handleGoogleSignup = async () => {
+    try {
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) throw new Error("Missing VITE_GOOGLE_CLIENT_ID");
+
+      const ensureGsi = () =>
+        new Promise((resolve, reject) => {
+          if (window.google && window.google.accounts) return resolve();
+          const script = document.createElement("script");
+          script.src = "https://accounts.google.com/gsi/client";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () =>
+            reject(new Error("Failed to load Google script"));
+          document.head.appendChild(script);
+        });
+
+      await ensureGsi();
+
+      const scope =
+        "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
+
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope,
+        prompt: "consent",
+        callback: async (resp) => {
+          try {
+            if (!resp || !resp.access_token) {
+              toast.error("Google signup/login cancelled or failed");
+              return;
+            }
+            const res = await googleLogin({ accessToken: resp.access_token });
+            if (res.success) {
+              toast.success("Google signup/login successful!");
+              navigate("/dashboard");
+            } else {
+              toast.error(res.message || "Google signup failed");
+            }
+          } catch (e) {
+            toast.error("Google signup failed: " + (e.message || "Error"));
+          }
+        },
+      });
+
+      tokenClient.requestAccessToken();
+    } catch (err) {
+      setError(err.message || "Google OAuth failed");
+      toast.error(err.message || "Google OAuth failed");
     }
   };
 
@@ -183,6 +237,33 @@ const Signup = () => {
             )}
           </button>
         </form>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* ✅ Google OAuth Button */}
+        <div className="mb-6">
+          <button
+            onClick={handleGoogleSignup}
+            className="w-full bg-white border border-gray-300 py-3 sm:py-3.5 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-50 transition-all duration-200 text-sm sm:text-base"
+          >
+            <img
+              src="https://developers.google.com/identity/images/g-logo.png"
+              alt="Google"
+              className="w-5 h-5"
+            />
+            <span className="font-medium">Continue with Google</span>
+          </button>
+        </div>
 
         {/* Login Link */}
         <div className="mt-6 sm:mt-8 text-center">

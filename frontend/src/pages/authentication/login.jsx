@@ -44,60 +44,78 @@ const Login = () => {
     }
   };
 
-  // ✅ Google OAuth Login (Popup)
-  const handleGoogleLogin = () => {
+  // ✅ Google OAuth Login via Google Identity Services (no redirect_uri needed)
+  const handleGoogleLogin = async () => {
     try {
       const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      const redirectUri = "http://localhost:5173"; // ⚠️ Change for production
-      const scope = "openid email profile";
+      if (!clientId) throw new Error("Missing VITE_GOOGLE_CLIENT_ID");
 
-      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
+      // Load GIS script if not present
+      const ensureGsi = () =>
+        new Promise((resolve, reject) => {
+          if (window.google && window.google.accounts) return resolve();
+          const script = document.createElement("script");
+          script.src = "https://accounts.google.com/gsi/client";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () =>
+            reject(new Error("Failed to load Google script"));
+          document.head.appendChild(script);
+        });
 
-      // Open Google login popup
-      const popup = window.open(oauthUrl, "googleLogin", "width=500,height=600");
+      await ensureGsi();
 
-      const interval = setInterval(() => {
-        try {
-          if (!popup || popup.closed) {
-            clearInterval(interval);
-            return;
+      const scope =
+        "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
+
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope,
+        prompt: "consent",
+        callback: async (resp) => {
+          try {
+            if (!resp || !resp.access_token) {
+              toast.error("Google login cancelled or failed");
+              return;
+            }
+            const res = await googleLogin({ accessToken: resp.access_token });
+            if (res.success) {
+              toast.success("Google login successful!");
+              navigate("/dashboard");
+            } else {
+              toast.error(res.message || "Google login failed");
+            }
+          } catch (e) {
+            toast.error("Google login failed: " + (e.message || "Error"));
           }
+        },
+      });
 
-          const url = popup.location.href;
-          if (url.includes("access_token")) {
-            const params = new URLSearchParams(url.split("#")[1]);
-            const accessToken = params.get("access_token");
-            clearInterval(interval);
-            popup.close();
-
-            // Send access token to backend
-            googleLogin({ accessToken }).then((res) => {
-              if (res.success) {
-                toast.success("Google login successful!");
-                navigate("/dashboard");
-              } else {
-                toast.error(res.message || "Google login failed");
-              }
-            });
-          }
-        } catch (err) {
-          // Ignore CORS errors until redirected back to our domain
-        }
-      }, 500);
+      tokenClient.requestAccessToken();
     } catch (err) {
-      setError("Google OAuth failed");
-      toast.error("Google OAuth failed");
+      setError(err.message || "Google OAuth failed");
+      toast.error(err.message || "Google OAuth failed");
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 via-yellow-100 to-blue-100 px-4">
       <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold text-pink-600 text-center mb-4">Welcome Back</h2>
+        <h2 className="text-2xl font-bold text-pink-600 text-center mb-4">
+          Welcome Back
+        </h2>
 
         {/* Errors */}
-        {error && <div className="bg-red-100 text-red-600 p-2 rounded mb-4">{error}</div>}
-        {success && <div className="bg-green-100 text-green-600 p-2 rounded mb-4">{success}</div>}
+        {error && (
+          <div className="bg-red-100 text-red-600 p-2 rounded mb-4">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-100 text-green-600 p-2 rounded mb-4">
+            {success}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex bg-gray-100 rounded-lg mb-4">
@@ -114,7 +132,9 @@ const Login = () => {
             type="button"
             onClick={() => setLoginMethod("password")}
             className={`flex-1 py-2 rounded-md ${
-              loginMethod === "password" ? "bg-white text-pink-600" : "text-gray-600"
+              loginMethod === "password"
+                ? "bg-white text-pink-600"
+                : "text-gray-600"
             }`}
           >
             Password
@@ -148,7 +168,11 @@ const Login = () => {
             disabled={loading}
             className="w-full bg-pink-500 text-white py-3 rounded hover:bg-pink-600"
           >
-            {loading ? "Please wait..." : loginMethod === "otp" ? "Send OTP" : "Login"}
+            {loading
+              ? "Please wait..."
+              : loginMethod === "otp"
+              ? "Send OTP"
+              : "Login"}
           </button>
         </form>
 

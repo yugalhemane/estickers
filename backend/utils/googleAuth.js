@@ -2,6 +2,15 @@
 let OAuth2Client;
 let client;
 
+// Ensure fetch exists in Node (<18 doesn't have global fetch)
+const ensureFetch = async () => {
+  if (typeof fetch === "undefined") {
+    const { default: nodeFetch } = await import("node-fetch");
+    // Attach to global for downstream usage
+    globalThis.fetch = nodeFetch;
+  }
+};
+
 // Function to initialize Google OAuth client
 const initGoogleAuth = async () => {
   try {
@@ -74,12 +83,16 @@ export const verifyGoogleToken = async (idToken) => {
  */
 export const verifyGoogleAccessToken = async (accessToken) => {
   try {
+    await ensureFetch();
     const response = await fetch(
       `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`
     );
 
     if (!response.ok) {
-      throw new Error("Failed to fetch user info from Google");
+      const errorText = await response.text().catch(() => "");
+      throw new Error(
+        `Failed to fetch user info from Google (HTTP ${response.status}) ${errorText}`
+      );
     }
 
     const userData = await response.json();
@@ -97,6 +110,6 @@ export const verifyGoogleAccessToken = async (accessToken) => {
     };
   } catch (error) {
     console.error("Google access token verification failed:", error.message);
-    throw new Error("Invalid Google access token");
+    throw new Error(error.message || "Invalid Google access token");
   }
 };
