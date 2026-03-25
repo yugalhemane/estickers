@@ -21,5 +21,8 @@ const stickerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Text index for search
+stickerSchema.index({ title: "text", description: "text", category: "text" });
+
 const Sticker = mongoose.model("Sticker", stickerSchema);
 export default Sticker;

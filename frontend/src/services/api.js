@@ -170,11 +170,15 @@ export const authService = {
 };
 
 export const stickerService = {
-  getAllStickers: (category) => {
-    const url =
-      category && category !== "All"
-        ? `/api/stickers?category=${encodeURIComponent(category)}`
-        : "/api/stickers";
+  getAllStickers: (category, options = {}) => {
+    const params = new URLSearchParams();
+    if (category && category !== "All") params.set("category", category);
+    if (options.page) params.set("page", String(options.page));
+    if (options.limit) params.set("limit", String(options.limit));
+    if (options.sort) params.set("sort", options.sort);
+    if (options.q) params.set("q", options.q);
+    const query = params.toString();
+    const url = `/api/stickers${query ? `?${query}` : ""}`;
     return apiGet(url);
   },
 

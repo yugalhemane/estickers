@@ -1,0 +1,4 @@
+Debug script starting
+Express imported
+Dotenv imported
+Cors imported

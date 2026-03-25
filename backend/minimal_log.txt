@@ -1,0 +1,6 @@
+Server minimal starting...
+Express imported
+Dotenv imported
+Imports done
+App created
+Minimal server running on 3001

@@ -121,8 +121,16 @@ const Checkout = () => {
         toast.error(response.message || "Order failed");
       }
     } catch (error) {
-      setError(error.message || "Failed to place order");
-      toast.error(error.message || "Failed to place order");
+      const msg = error.message || "Failed to place order";
+      setError(msg);
+      toast.error(msg);
+      if (msg.includes("Total mismatch")) {
+        // Offer to refresh cart totals and retry
+        await fetchCart();
+        toast.info(
+          "Cart totals refreshed. Please review and place order again."
+        );
+      }
     } finally {
       setPlacingOrder(false);
     }

@@ -253,6 +253,7 @@ export const resendOtp = async (req, res) => {
 // ✳️ Password-based Login Controller
 export const loginWithPassword = async (req, res) => {
   try {
+    console.log("Login with password attempt:", req.body);
     const validated = loginWithPasswordSchema.parse(req.body);
     const { email, password } = validated;
 
@@ -269,6 +270,13 @@ export const loginWithPassword = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Account not verified. Please verify your email first.",
+      });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password not set. Please login with Google or reset your password.",
       });
     }
 

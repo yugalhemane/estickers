@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { stickerService, cartService } from "../../services/api";
+import SearchAndFilter from "../../components/SearchAndFilter";
 import { useAuth } from "../../contexts/AuthContext";
 import StickerCard from "../../components/StickerCard";
 import { toast } from "react-toastify";
@@ -21,14 +22,24 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const fetchStickers = async () => {
       setLoading(true);
       setError("");
       try {
-        const res = await stickerService.getAllStickers();
-        setStickers(res.data || []);
+        const res = await stickerService.getAllStickers(selectedCategory, {
+          page,
+          limit: 24,
+          sort: "createdAt:desc",
+          ...(query ? { q: query } : {}),
+        });
+        const list = res.data || res.data?.data || res.data?.data || res.data; // tolerate shapes
+        setStickers(Array.isArray(list) ? list : res.data || []);
+        if (typeof res.totalPages === "number") setTotalPages(res.totalPages);
       } catch (err) {
         setError(err.message || "Failed to load stickers");
       } finally {
@@ -36,7 +47,7 @@ const Home = () => {
       }
     };
     fetchStickers();
-  }, []);
+  }, [selectedCategory, page, query]);
 
   // Simulate trending/newly arrived
   const trending = stickers.slice(0, 6);
@@ -176,6 +187,11 @@ const Home = () => {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="w-full max-w-5xl mb-6 sm:mb-8 px-4">
+      <SearchAndFilter initialQuery={query} onSearch={(q) => { setQuery(q); setPage(1); }} />
+      </div>
+
       {/* Category Bar */}
       <div className="w-full max-w-5xl mb-6 sm:mb-8 px-4">
         <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -187,7 +203,10 @@ const Home = () => {
                   ? "bg-gradient-to-r from-cyan-500 to-purple-600 text-white border-transparent shadow-lg"
                   : "backdrop-blur-xl bg-white/10 text-white border-white/20 hover:bg-white/20"
               }`}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => {
+                setSelectedCategory(cat);
+                setPage(1);
+              }}
             >
               {cat}
             </button>
@@ -235,6 +254,31 @@ const Home = () => {
           ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+{/* Pagination Controls */}
+{!loading && !error && totalPages > 1 && (
+  <div className="w-full max-w-5xl mt-6 px-4 flex items-center justify-center gap-3">
+    <button
+      className="px-4 py-2 rounded-full bg-white/10 text-white border border-white/20 disabled:opacity-50"
+      onClick={() => setPage((p) => Math.max(1, p - 1))}
+      disabled={page <= 1}
+    >
+      Prev
+    </button>
+    <span className="text-white/80">
+      Page {page} of {totalPages}
+    </span>
+    <button
+      className="px-4 py-2 rounded-full bg-white/10 text-white border border-white/20 disabled:opacity-50"
+      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+      disabled={page >= totalPages}
+    >
+      Next
+    </button>
+  </div>
+)}
+
 
       {/* Custom keyframes and scrollbar styles */}
       <style>{`

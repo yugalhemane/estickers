@@ -1,0 +1,2 @@
+Status: 200
+Body: {"success":true,"message":"OTP sent to your email for verification"}

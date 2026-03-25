@@ -1,0 +1,3 @@
+Sending request...
+statusCode: 404
+Response body: {"success":false,"message":"User not found. Please sign up first."}
