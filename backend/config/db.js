@@ -1,4 +1,9 @@
 import mongoose from "mongoose";
+import dns from "dns";
+
+// Fix for local `querySrv ECONNREFUSED` issues:
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 
 const connetDB = async () => {
   try {
